@@ -30,7 +30,7 @@ class ValidateModel(BaseModel):
             self.validation_cfg = self.cfg.task
         else:
             self.validation_cfg = self.cfg.task.validation
-        self.metric = MeanAveragePrecision(iou_type="bbox", box_format="xyxy")
+        self.metric = MeanAveragePrecision(iou_type="bbox", box_format="xyxy", backend="faster_coco_eval")
         self.metric.warn_on_many_detections = False
         self.val_loader = create_dataloader(self.validation_cfg.data, self.cfg.dataset, self.validation_cfg.task)
         self.ema = self.model
@@ -48,8 +48,9 @@ class ValidateModel(BaseModel):
         batch_size, images, targets, rev_tensor, img_paths = batch
         H, W = images.shape[2:]
         predicts = self.post_process(self.ema(images), image_size=[W, H])
-        self.metric.update([to_metrics_format(predict) for predict in predicts],
-                           [to_metrics_format(target[target.sum(1) > 0]) for target in targets])
+        self.metric.update(
+            [to_metrics_format(predict) for predict in predicts], [to_metrics_format(target) for target in targets]
+        )
         return predicts
 
     def on_validation_epoch_end(self):
